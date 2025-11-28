@@ -15,8 +15,52 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-# Removed Mock FLAME GPU 2 imports
-import pyflamegpu  # Direct import
+# Try to import pyflamegpu, provide mock if not available
+try:
+    import pyflamegpu
+    FLAMEGPU_AVAILABLE = True
+except ImportError:
+    FLAMEGPU_AVAILABLE = False
+    # Create minimal mock for when GPU is not available
+    class MockPyFlameGPU:
+        class FLAMEGPUException(Exception):
+            pass
+        class ModelDescription:
+            def __init__(self, name): pass
+            def Environment(self): return MockEnv()
+            def newAgent(self, name): return MockAgent()
+            def Agent(self, name): return MockAgent()
+            def newMessageBruteForce(self, name): return MockMsg()
+            def newLayer(self, name): return MockLayer()
+        class CUDASimulation:
+            def __init__(self, model): pass
+            def setDeviceID(self, id): pass
+            def initialise(self, args): pass
+            def step(self): pass
+            def setPopulationData(self, pop): pass
+            def getAgentPopulation(self, agent): return []
+        class AgentPopulation:
+            def __init__(self, agent, count): self._count = count
+            def Agent(self, i): return MockAgentInstance()
+    class MockEnv:
+        def newPropertyFloat(self, n, v): pass
+        def newPropertyInt(self, n, v): pass
+    class MockAgent:
+        def newVariableFloat(self, n): pass
+        def newVariableInt(self, n): pass
+        def newAgentFunction(self, n, f): pass
+        def variables(self): return {}
+    class MockMsg:
+        def newVariableInt(self, n): pass
+        def newVariableFloat(self, n): pass
+    class MockLayer:
+        def addAgentFunction(self, n): pass
+    class MockAgentInstance:
+        def setVariableFloat(self, k, v): pass
+        def setVariableInt(self, k, v): pass
+        def getVariableFloat(self, k): return 0.0
+        def getVariable(self, k): return 0
+    pyflamegpu = MockPyFlameGPU()
 
 from .agent_kernels import (
     output_cultural_influence_pyfgpu,  # Import new cultural output function
@@ -170,7 +214,7 @@ class FlameGPUSimulation:
                         )
                 except Exception as e_set_var:
                     logger.error(
-                        "Error setting FlameGPU agent variable "{key}' for agent {agent_state_dict.get('agent_id', 'UNKNOWN')}: {e_set_var}"
+                        f"Error setting FlameGPU agent variable '{key}' for agent {agent_state_dict.get('agent_id', 'UNKNOWN')}: {e_set_var}"
                     )
         logger.debug(
             f"Attempting to set agent population data in FlameGPU for {num_agents} agents. _blocking_set_population_data"

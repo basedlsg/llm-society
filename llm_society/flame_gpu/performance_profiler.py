@@ -35,7 +35,7 @@ class KernelProfile:
     throughput_agents_per_sec: List[float] = field(default_factory=list)
     total_executions: int = 0
     total_time: float = 0.0
-    min_time: float = float("in")
+    min_time: float = float("inf")
     max_time: float = 0.0
     avg_time: float = 0.0
     std_time: float = 0.0

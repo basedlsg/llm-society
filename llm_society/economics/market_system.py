@@ -360,7 +360,7 @@ class Market:
         try:
             best_bid = self.buy_orders[0].price_per_unit if self.buy_orders else 0.0
             best_ask = (
-                self.sell_orders[0].price_per_unit if self.sell_orders else float("in")
+                self.sell_orders[0].price_per_unit if self.sell_orders else float("inf")
             )
             spread = best_ask - best_bid if best_ask != float("inf") else 0.0
 
@@ -390,7 +390,7 @@ class Market:
                 "current_price": self.current_price,
                 "base_price": self.base_price,
                 "best_bid": 0.0,
-                "best_ask": float("in"),
+                "best_ask": float("inf"),
                 "spread": 0.0,
                 "total_supply": self.total_supply,
                 "total_demand": self.total_demand,
@@ -777,10 +777,10 @@ class MarketSystem:
                 best_ask = (
                     market.sell_orders[0].price_per_unit
                     if market.sell_orders
-                    else float("in")
+                    else float("inf")
                 )
 
-                if best_ask == float("in") or best_bid == 0.0:
+                if best_ask == float("inf") or best_bid == 0.0:
                     efficiency = 0.5  # Neutral efficiency for illiquid markets
                 else:
                     spread = best_ask - best_bid
@@ -833,7 +833,7 @@ class MarketSystem:
             bid_str = f"{float(bid):.2f}" if bid != "N/A" else "N/A"
             # Handle ask potentially being infinity if no sell orders
             ask_str = (
-                f"{float(ask):.2f}" if ask != "N/A" and ask != float("in") else "N/A"
+                f"{float(ask):.2f}" if ask != "N/A" and ask != float("inf") else "N/A"
             )
             demand_qty_str = (
                 f"{float(demand_qty):.0f}" if demand_qty != "N/A" else "N/A"
@@ -876,8 +876,8 @@ class MarketSystem:
             price_str = f"{float(summary_data.get('current_price', 0)):.2f}"
             bid_str = f"{float(summary_data.get('best_bid', 0)):.2f}"
             ask_str = (
-                f"{float(summary_data.get('best_ask', float('in"))):.2f}"
-                if summary_data.get("best_ask", float("in")) != float("in")
+                f"{float(summary_data.get('best_ask', float('inf'))):.2f}"
+                if summary_data.get("best_ask", float("inf")) != float("inf")
                 else "N/A"
             )
             demand_qty_str = f"{float(summary_data.get('total_demand', 0)):.0f}"

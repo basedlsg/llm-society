@@ -128,7 +128,7 @@ class LLMCoordinator:
                 logger.info(f"Primary Gemini model initialized: {primary_model_name}")
             except Exception as e_primary:
                 logger.error(
-                    "Failed to initialize primary Gemini model "{primary_model_name}': {e_primary}. Primary model will be unavailable."
+                    f"Failed to initialize primary Gemini model '{primary_model_name}': {e_primary}. Primary model will be unavailable."
                 )
                 self.gemini_model = None  # Ensure it's None if primary fails
 
@@ -153,14 +153,14 @@ class LLMCoordinator:
                         )
                     except Exception as e_secondary:
                         logger.error(
-                            "Failed to initialize secondary Gemini model "{secondary_model_name}': {e_secondary}. Secondary model will be unavailable."
+                            f"Failed to initialize secondary Gemini model '{secondary_model_name}': {e_secondary}. Secondary model will be unavailable."
                         )
                         self.gemini_model_secondary = (
                             None  # Ensure it's None if secondary fails
                         )
                 else:
                     logger.warning(
-                        "Secondary model name "{secondary_model_name_from_config}' configured but not recognized as a Gemini model type. Secondary model will be unavailable."
+                        f"Secondary model name '{secondary_model_name_from_config}' configured but not recognized as a Gemini model type. Secondary model will be unavailable."
                     )
             else:
                 logger.info("No secondary Gemini model configured.")
@@ -318,6 +318,7 @@ class LLMCoordinator:
                 else:
                     # Use mock responses
                     response_text = await self._mock_llm_response(request)
+                    retries_attempted = 0
                     success = True
                     error_message = None
 
@@ -326,6 +327,7 @@ class LLMCoordinator:
                 f"Gemini API failed for {request.agent_id}: {e}, falling back to mock"
             )
             response_text = await self._mock_llm_response(request)
+            retries_attempted = 0
             success = True  # Mock always succeeds
             error_message = str(e)
 

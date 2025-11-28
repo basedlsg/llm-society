@@ -102,7 +102,7 @@ class AssetManager:
         # Ensure output_directory is valid before joining; __init__ handles creation but could have failed silently before this change.
         if not os.path.isdir(self.output_directory):  # Check if directory is usable
             logger.error(
-                "AssetManager: Output directory "{self.output_directory}' is not a valid directory. Cannot save asset."
+                f"AssetManager: Output directory '{self.output_directory}' is not a valid directory. Cannot save asset."
             )
             return None
         output_path = os.path.join(self.output_directory, file_name)

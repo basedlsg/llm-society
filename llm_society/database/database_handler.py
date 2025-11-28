@@ -18,7 +18,16 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+# Use generic types for cross-database compatibility (SQLite + PostgreSQL)
+try:
+    from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY, JSONB as PG_JSONB, UUID as PG_UUID
+    POSTGRES_AVAILABLE = True
+except ImportError:
+    POSTGRES_AVAILABLE = False
+
+# Fallback to generic types for SQLite
+from sqlalchemy import JSON as JSONB  # Use JSON instead of JSONB for SQLite compatibility
+from sqlalchemy import String as UUID_TYPE  # Use String for UUID in SQLite
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from llm_society.economics.banking_system import AccountType, LoanStatus, LoanType
@@ -40,9 +49,14 @@ Base = declarative_base()
 # --- Conceptual SQLAlchemy Models (based on DATABASE_SCHEMA.MD) ---
 
 
+def _uuid_default():
+    """Generate a UUID string for SQLite compatibility."""
+    return str(uuid.uuid4())
+
+
 class SimulationRunDB(Base):
     __tablename__ = "simulation_runs"
-    run_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_id = Column(String(36), primary_key=True, default=_uuid_default)
     config_snapshot = Column(JSONB)
     start_time = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
     end_time = Column(DateTime(timezone=True), nullable=True)
@@ -52,16 +66,16 @@ class SimulationRunDB(Base):
 
 class AgentMemoryDB(Base):
     __tablename__ = "agent_memories"
-    memory_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    memory_id = Column(String(36), primary_key=True, default=_uuid_default)
     agent_id_str = Column(String(255), nullable=False, index=True)
     simulation_run_id = Column(
-        UUID(as_uuid=True), ForeignKey("simulation_runs.run_id"), nullable=True
+        String(36), ForeignKey("simulation_runs.run_id"), nullable=True
     )
     step_timestamp = Column(Integer, nullable=False, index=True)
     real_timestamp = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
     content = Column(Text, nullable=False)
     importance = Column(Float)
-    tags = Column(ARRAY(String), nullable=True)
+    tags = Column(Text, nullable=True)  # Store as JSON string for SQLite
     related_agent_id = Column(String(255), nullable=True)
 
 
@@ -72,7 +86,7 @@ class MarketTransactionDB(Base):
     )  # Changed to Integer for autoincrement by default in many DBs
     transaction_sim_id = Column(String(255), nullable=False, unique=True)
     simulation_run_id = Column(
-        UUID(as_uuid=True), ForeignKey("simulation_runs.run_id"), nullable=True
+        String(36), ForeignKey("simulation_runs.run_id"), nullable=True
     )
     step_timestamp = Column(Integer, nullable=False, index=True)
     real_timestamp = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
@@ -92,7 +106,7 @@ class BankingTransactionDB(Base):
     transaction_id_pk = Column(Integer, primary_key=True, autoincrement=True)
     transaction_sim_id = Column(String(255), nullable=False, unique=True)
     simulation_run_id = Column(
-        UUID(as_uuid=True), ForeignKey("simulation_runs.run_id"), nullable=True
+        String(36), ForeignKey("simulation_runs.run_id"), nullable=True
     )
     step_timestamp = Column(Integer, nullable=False, index=True)
     real_timestamp = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
@@ -114,7 +128,7 @@ class SimulationEventDB(Base):
         Integer, primary_key=True, autoincrement=True
     )  # Using Integer for simplicity, UUID also fine
     simulation_run_id = Column(
-        UUID(as_uuid=True), ForeignKey("simulation_runs.run_id"), nullable=True
+        String(36), ForeignKey("simulation_runs.run_id"), nullable=True
     )
     step_timestamp = Column(Integer, nullable=False, index=True)
     real_timestamp = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)

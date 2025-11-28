@@ -188,12 +188,12 @@ class PointEGenerator:
                 await self._save_asset_file(asset)
 
             logger.info(
-                "Generated asset "{asset.description}' in {generation_time:.2f}s"
+                f"Generated asset '{asset.description}' in {generation_time:.2f}s"
             )
             return asset
 
         except Exception as e:
-            logger.error("Asset generation failed for "{request.description}': {e}")
+            logger.error(f"Asset generation failed for '{request.description}': {e}")
             return None
 
     async def _generate_asset_mock(self, request: AssetRequest) -> Generated3DAsset:
@@ -338,7 +338,7 @@ class AssetManager:
 
         if asset:
             self.active_assets[asset.asset_id] = asset
-            logger.info("Created asset "{description}' for agent {agent_id}")
+            logger.info(f"Created asset '{description}' for agent {agent_id}")
 
         return asset
 

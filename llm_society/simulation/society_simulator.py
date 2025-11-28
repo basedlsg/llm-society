@@ -102,7 +102,8 @@ class SocietySimulator(mesa.Model):
         self.config = config
         self.current_step = 0
         self.next_id_counter = 0
-        self.schedule = mesa.time.RandomActivation(self)
+        # Mesa 3.x uses model.agents instead of schedulers
+        self._agent_list: List[LLMAgent] = []
 
         self.database_handler: Optional[DatabaseHandler] = None
         db_url = getattr(self.config.output, "database_url", None)
@@ -234,7 +235,7 @@ class SocietySimulator(mesa.Model):
                     > random.random()
                 ),
             )
-            self.schedule.add(agent)
+            self._agent_list.append(agent)
             # ... (flame_gpu_state prep as before using agent.* attributes) ...
             cash = float(agent.resources.get("currency", 100.0))
             bank = 0.0
@@ -295,7 +296,7 @@ class SocietySimulator(mesa.Model):
                 ] = 0.6
             agent_initial_states_for_flame_gpu.append(initial_flame_gpu_state)
 
-        logger.info(f"Created {len(self.schedule.agents)} LLMAgents.")
+        logger.info(f"Created {len(self._agent_list)} LLMAgents.")
         if hasattr(self, "flame_gpu_sim") and self.flame_gpu_sim:
             success = await self.flame_gpu_sim.initialize_agents(
                 agent_initial_states_for_flame_gpu
@@ -342,15 +343,15 @@ class SocietySimulator(mesa.Model):
                 nearby_objects.append(obj)
         return nearby_objects
 
-    async def step(self):
+    async def _async_step(self):
         """
-        Advance the model by one step.
+        Advance the model by one step (async implementation).
         This will handle asynchronous agent steps.
         """
         logger.info(f"--- Simulation Step {self.current_step} Starting ---")
 
         logger.debug("Phase 1: LLMAgent steps...")
-        await asyncio.gather(*[agent.step() for agent in self.schedule.agents])
+        await asyncio.gather(*[agent.step() for agent in self._agent_list])
         logger.debug("Phase 1: LLMAgent steps completed.")
 
         logger.debug(
@@ -366,7 +367,7 @@ class SocietySimulator(mesa.Model):
                     buyer = next(
                         (
                             a
-                            for a in self.schedule.agents
+                            for a in self._agent_list
                             if a.unique_id == transaction_obj.buyer_id
                         ),
                         None,
@@ -374,7 +375,7 @@ class SocietySimulator(mesa.Model):
                     seller = next(
                         (
                             a
-                            for a in self.schedule.agents
+                            for a in self._agent_list
                             if a.unique_id == transaction_obj.seller_id
                         ),
                         None,
@@ -419,7 +420,7 @@ class SocietySimulator(mesa.Model):
 
         if hasattr(self, "family_system") and self.family_system:
             logger.debug("Processing family dynamics...")
-            agent_states_for_family = {ag.unique_id: ag for ag in self.schedule.agents}
+            agent_states_for_family = {ag.unique_id: ag for ag in self._agent_list}
             family_events = await self.family_system.process_family_dynamics(
                 agent_states=agent_states_for_family
             )
@@ -456,7 +457,7 @@ class SocietySimulator(mesa.Model):
         logger.debug("Phase 3: Priming FlameGPU with current agent states...")
         if hasattr(self, "flame_gpu_sim") and self.flame_gpu_sim:
             current_agent_states_for_flame_gpu = []
-            for llm_agent in self.schedule.agents:
+            for llm_agent in self._agent_list:
                 try:
                     agent_id_int = int(llm_agent.unique_id.split("_")[-1])
                 except (ValueError, IndexError):
@@ -563,7 +564,7 @@ class SocietySimulator(mesa.Model):
                     llm_agent = next(
                         (
                             a
-                            for a in self.schedule.agents
+                            for a in self._agent_list
                             if a.unique_id == llm_agent_id
                         ),
                         None,
@@ -725,7 +726,7 @@ class SocietySimulator(mesa.Model):
                         llm_agent.age = float(fg_state.get("age", llm_agent.age))
                     except (ValueError, TypeError):
                         logger.warning(
-                            "Invalid age "{fg_state.get('age')}' from FlameGPU for {llm_agent_id}."
+                            f"Invalid age '{fg_state.get('age')}' from FlameGPU for {llm_agent_id}."
                         )
                     try:
                         llm_agent.health = max(
@@ -734,7 +735,7 @@ class SocietySimulator(mesa.Model):
                         )
                     except (ValueError, TypeError):
                         logger.warning(
-                            "Invalid health "{fg_state.get('health')}' from FlameGPU for {llm_agent_id}."
+                            f"Invalid health '{fg_state.get('health')}' from FlameGPU for {llm_agent_id}."
                         )
                     try:
                         llm_agent.employed = int(
@@ -742,7 +743,7 @@ class SocietySimulator(mesa.Model):
                         )
                     except (ValueError, TypeError):
                         logger.warning(
-                            "Invalid employed status "{fg_state.get('employed')}' from FlameGPU for {llm_agent_id}."
+                            f"Invalid employed status '{fg_state.get('employed')}' from FlameGPU for {llm_agent_id}."
                         )
 
                     if i == 0:  # Log first agent's state change
@@ -759,7 +760,6 @@ class SocietySimulator(mesa.Model):
                 "FlameGPUSimulation not available, skipping FlameGPU step and agent updates from FlameGPU."
             )
 
-        self.schedule.steps += 1
         self.current_step += 1
         logger.info(f"--- Simulation Step {self.current_step -1} Ended ---")
 
@@ -777,7 +777,7 @@ class SocietySimulator(mesa.Model):
                     logger.info(
                         f"Progress: Step {i}/{self.config.simulation.max_steps}"
                     )
-                await self.step()
+                await self._async_step()
 
                 if (
                     self.config.simulation.autosave_enabled
@@ -795,7 +795,7 @@ class SocietySimulator(mesa.Model):
                         save_filename = filename_pattern.format(step=self.current_step)
                     except KeyError:
                         logger.warning(
-                            "Autosave pattern "{filename_pattern}' invalid."
+                            f"Autosave pattern '{filename_pattern}' invalid."
                         )
                         save_filename = f"autosave_step_{self.current_step}.json"
                     full_save_path = os.path.join(full_autosave_dir, save_filename)
@@ -827,7 +827,10 @@ class SocietySimulator(mesa.Model):
                     logger.error(f"Error stopping LLMCoordinator: {e_llm_stop}")
 
             if self.database_handler:
-                self.database_handler.end_simulation_run(status=run_status)
+                try:
+                    await self.database_handler.end_simulation_run(status=run_status)
+                except Exception as e_db:
+                    logger.error(f"Error ending simulation run in database: {e_db}")
 
             logger.info(f"Simulation run finished with status: {run_status}.")
 
@@ -837,7 +840,7 @@ class SocietySimulator(mesa.Model):
         return {
             "current_step": self.current_step,
             "next_id_counter": self.next_id_counter,
-            "agents": [agent.to_dict() for agent in self.schedule.agents],
+            "agents": [agent.to_dict() for agent in self._agent_list],
             "world_objects": [obj.to_dict() for obj in self.world_objects],
             "llm_coordinator_state": self.llm_coordinator.to_dict(),
             "asset_manager_state": self.asset_manager.to_dict(),
@@ -889,7 +892,7 @@ class SocietySimulator(mesa.Model):
                 current_step_getter=lambda: simulator.current_step,
             )
 
-        simulator.schedule = mesa.time.RandomActivation(simulator)
+        simulator._agent_list = []
         agent_data_list = data.get("agents", [])
         flame_gpu_states_load = []
         for i, agent_data in enumerate(agent_data_list):
@@ -897,7 +900,7 @@ class SocietySimulator(mesa.Model):
                 agent = LLMAgent.from_dict(
                     agent_data, simulator, simulator.llm_coordinator, config
                 )
-                simulator.schedule.add(agent)
+                simulator._agent_list.append(agent)
                 agent_id_int = int(agent.unique_id.split("_")[-1])
                 cash = float(agent.resources.get("currency", 0.0))
                 bank = 0.0
@@ -961,7 +964,7 @@ class SocietySimulator(mesa.Model):
             for obj_data in data.get("world_objects", [])
         ]
         logger.info(
-            f"SocietySimulator state components restored. {len(simulator.schedule.agents)} agents, {len(simulator.world_objects)} objects. FlameGPU init deferred to run()."
+            f"SocietySimulator state components restored. {len(simulator._agent_list)} agents, {len(simulator.world_objects)} objects. FlameGPU init deferred to run()."
         )
         return simulator
 
@@ -1088,8 +1091,8 @@ if __name__ == "__main__":
         print(f"Total world objects: {len(simulator.world_objects)}")
 
         # Set agent's initial position to be near the apple for testing perception
-        if simulator.schedule.agents:
-            agent = simulator.schedule.agents[0]
+        if simulator._agent_list:
+            agent = simulator._agent_list[0]
             agent.position = Position(x=5.0, y=5.0, z=0.0)  # Place agent near the apple
             print(
                 f"Agent {agent.unique_id} placed at {agent.position} for testing object perception."

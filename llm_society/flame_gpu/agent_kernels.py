@@ -14,7 +14,32 @@ Each kernel is optimized for parallel execution on GPU hardware.
 import math
 from enum import IntEnum
 
-import pyflamegpu  # Required for @pyflamegpu.agent_function and API calls
+# Try to import pyflamegpu, provide mock if not available
+try:
+    import pyflamegpu
+    FLAMEGPU_AVAILABLE = True
+except ImportError:
+    FLAMEGPU_AVAILABLE = False
+    # Create a mock pyflamegpu module for when GPU is not available
+    class MockPyFlameGPU:
+        ALIVE = 0
+        FLAMEGPU_AGENT_FUNCTION_RETURN = int
+
+        @staticmethod
+        def agent_function(func):
+            """Decorator that does nothing when pyflamegpu is not available"""
+            return func
+
+        class MessageNone:
+            pass
+
+        class MessageInput:
+            pass
+
+        class MessageOutput:
+            pass
+
+    pyflamegpu = MockPyFlameGPU()
 
 # Unused numpy import removed. If np.random.random was used in a mock that's now a pyflamegpu.random call, this is fine.
 # Module-level constants for radii and interaction limits have been removed.

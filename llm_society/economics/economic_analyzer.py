@@ -231,7 +231,7 @@ class EconomicAnalyzer:
 
         # Categorize agents
         bottom_25_threshold = distribution.wealth_percentiles.get(25, 0)
-        top_25_threshold = distribution.wealth_percentiles.get(75, float("in"))
+        top_25_threshold = distribution.wealth_percentiles.get(75, float("inf"))
 
         distribution.poor_agents = sum(
             1 for w in agent_wealth if w <= bottom_25_threshold

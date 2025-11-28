@@ -5,16 +5,39 @@ import random
 from typing import Any, Optional, Tuple
 
 import numpy as np
-import torch
-import trimesh
-from PIL import Image
+
+# Optional imports for 3D asset generation
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    torch = None
+    TORCH_AVAILABLE = False
+
+try:
+    import trimesh
+    TRIMESH_AVAILABLE = True
+except ImportError:
+    trimesh = None
+    TRIMESH_AVAILABLE = False
+
+try:
+    from PIL import Image
+    PIL_AVAILABLE = True
+except ImportError:
+    Image = None
+    PIL_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
 
 class PointEHandler:
-    def __init__(self, device="cuda" if torch.cuda.is_available() else "cpu"):
-        self.device = torch.device(device)
+    def __init__(self, device="cuda" if TORCH_AVAILABLE and torch.cuda.is_available() else "cpu"):
+        if TORCH_AVAILABLE:
+            self.device = torch.device(device)
+        else:
+            self.device = device
+            logger.warning("PointEHandler: torch not available, running in fallback mode")
         logger.info(f"PointEHandler: Using device: {self.device}")
         self.base_model = None
         self.upsampler_model = None
@@ -28,6 +51,12 @@ class PointEHandler:
     async def load_models(self):
         """Load Point-E models with fallback to mock generation if models fail"""
         if self.models_loaded:
+            return True
+
+        if not TORCH_AVAILABLE:
+            logger.warning("PointEHandler: torch not available, using fallback mode")
+            self.fallback_mode = True
+            self.models_loaded = True
             return True
 
         try:
@@ -110,7 +139,7 @@ class PointEHandler:
         if not prompt:
             raise ValueError("Prompt cannot be empty.")
 
-        logger.info("PointEHandler: Generating point cloud for prompt: "{prompt}'")
+        logger.info(f"PointEHandler: Generating point cloud for prompt: '{prompt}'")
 
         if self.fallback_mode or not self.sampler:
             logger.info("PointEHandler: Using fallback procedural generation")
@@ -182,7 +211,7 @@ class PointEHandler:
 
         except Exception as e:
             logger.error(
-                "PointEHandler: Error in real Point-E generation for "{prompt}': {e}"
+                f"PointEHandler: Error in real Point-E generation for '{prompt}': {e}"
             )
             logger.info("PointEHandler: Falling back to procedural generation")
             return await self._generate_fallback_point_cloud(prompt, output_path)
@@ -391,7 +420,7 @@ async def main_test_point_e():
         ]
 
         for prompt in test_prompts:
-            logger.info("Testing generation for: "{prompt}'")
+            logger.info(f"Testing generation for: '{prompt}'")
             try:
                 output_file = f"test_{prompt.replace(' ', '_').replace(',', '')}.ply"
                 point_cloud, figure = await handler.generate_point_cloud_from_text(
@@ -405,7 +434,7 @@ async def main_test_point_e():
                 else:
                     logger.error(f"✗ Generation failed for: {prompt}")
             except Exception as e:
-                logger.error("✗ Error generating "{prompt}': {e}")
+                logger.error(f"✗ Error generating '{prompt}': {e}")
     else:
         logger.error("Models failed to load completely.")
 

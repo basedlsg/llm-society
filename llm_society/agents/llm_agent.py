@@ -476,7 +476,7 @@ Respond with just the action and parameters, like "move_to 10 15" or "talk_to ag
         """Get agents within social radius"""
         nearby = []
         social_r = getattr(self.config.agents, "social_radius", 10.0)
-        for agent in self.model.schedule.agents:
+        for agent in self.model._agent_list:
             if (
                 agent.unique_id != self.unique_id
                 and self.position.distance_to(agent.position) <= social_r
@@ -563,7 +563,7 @@ Respond with just the action and parameters, like "move_to 10 15" or "talk_to ag
                     try:
                         ResourceType(resource_str)
                         action["params"]["resource"] = resource_str
-                except ValueError:
+                    except ValueError:
                         valid_action = False
                         error_msg = (
                             f"Invalid resource_name for market_trade: {resource_str}."
@@ -657,7 +657,7 @@ Respond with just the action and parameters, like "move_to 10 15" or "talk_to ag
                 f"Agent {self.unique_id} LLM response invalid: '{response}'. Reason: {error_msg}. Defaulting to rest."
             )
             self._add_memory(
-                "Tried action "{response}', but it was invalid ({error_msg}). Resting instead.",
+                f"Tried action '{response}', but it was invalid ({error_msg}). Resting instead.",
                 importance=0.6,
             )
             return {"type": "rest", "params": {}}  # Default to rest
@@ -770,7 +770,7 @@ Respond with just the action and parameters, like "move_to 10 15" or "talk_to ag
         """Execute social interaction"""
         # Find target agent
         target_agent = next(
-            (a for a in self.model.schedule.agents if a.unique_id == target_id), None
+            (a for a in self.model._agent_list if a.unique_id == target_id), None
         )
         
         if target_agent:
@@ -1309,7 +1309,7 @@ Respond with just the action and parameters, like "move_to 10 15" or "talk_to ag
                 f"Error banking action for {agent_id}: {sub_action_str}. Error: {e}",
                 exc_info=True,
             )
-            await self._add_memory("Error banking action "{sub_action_str}'.", 0.5)
+            await self._add_memory(f"Error banking action '{sub_action_str}'.", 0.5)
 
         self.energy -= 0.02  # General cost for banking actions
 
@@ -1358,13 +1358,13 @@ Respond with just the action and parameters, like "move_to 10 15" or "talk_to ag
                             market_info_result = f"Detailed market info for {target} is currently empty or unavailable."
                     except ValueError:
                         market_info_result = (
-                            "Unknown resource "{target}' for market research."
+                            f"Unknown resource '{target}' for market research."
                         )
                 else:
                     market_info_result = f"Function to get detailed market info for {target} is not available."
 
             await self._add_memory(
-                "Market research for "{target}': {market_info_result[:200]}...",
+                f"Market research for '{target}': {market_info_result[:200]}...",
                 importance=0.6,
             )
             self.last_market_research_result = (
@@ -1380,7 +1380,7 @@ Respond with just the action and parameters, like "move_to 10 15" or "talk_to ag
                 exc_info=True,
             )
             await self._add_memory(
-                "Error performing market research for "{target}'.", importance=0.4
+                f"Error performing market research for '{target}'.", importance=0.4
             )
             self.last_market_research_result = (
                 f"Error during market research for {target}."
@@ -1688,7 +1688,7 @@ Generate a brief conversation (1-2 lines) between you two.
                 agent.agent_type = AgentType(data["agent_type"])
             except ValueError:
                 logger.warning(
-                    "Invalid agent_type "{data['agent_type']}' in serialized data for {unique_id}. Using default from persona."
+                    f"Invalid agent_type '{data['agent_type']}' in serialized data for {unique_id}. Using default from persona."
                 )
 
         # Set other attributes
@@ -1702,7 +1702,7 @@ Generate a brief conversation (1-2 lines) between you two.
             )  # Fallback to IDLE
         except ValueError:
             logger.warning(
-                "Invalid state "{data.get('state')}' for {unique_id}. Defaulting to IDLE."
+                f"Invalid state '{data.get('state')}' for {unique_id}. Defaulting to IDLE."
             )
             agent.state = AgentState.IDLE
 
