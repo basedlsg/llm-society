@@ -17,9 +17,11 @@ class LLMConfig:
     api_max_backoff: float = 16.0
     cache_responses: bool = True
     rate_limit_per_second: int = 10
-    max_cache_size: int = 1000  # New: Max number of items in LLM response cache
+    max_cache_size: int = 5000  # Increased for better cache hit rate at scale
     request_timeout: float = 60.0
-    # Add other LLM related configs like API keys, specific paths if needed
+    batch_size: int = 10  # Number of requests to batch together
+    batch_timeout: float = 0.1  # Max seconds to wait for batch to fill
+    enable_request_deduplication: bool = True  # Deduplicate identical pending requests
 
 
 @dataclass
@@ -61,6 +63,25 @@ class OutputConfig:
     database_url: Optional[str] = (
         "sqlite:///./llm_society_dynamic_data.db"  # For dynamic data like memories, transactions
     )
+    # Database connection pool settings
+    db_pool_size: int = 5  # Number of connections to keep in the pool
+    db_max_overflow: int = 10  # Additional connections beyond pool_size
+    db_pool_timeout: float = 30.0  # Seconds to wait for a connection
+
+
+@dataclass
+class PerformanceConfig:
+    """Performance tuning configuration"""
+    enable_gpu_acceleration: bool = False  # Enable FLAME GPU acceleration
+    gpu_device_id: int = 0  # GPU device to use
+    agent_batch_size: int = 100  # Agents to process per batch
+    parallel_llm_requests: int = 5  # Max concurrent LLM requests
+    memory_limit_mb: int = 4096  # Memory limit for agent data
+    enable_profiling: bool = False  # Enable performance profiling
+    profile_interval: int = 100  # Steps between profile snapshots
+    async_database_writes: bool = True  # Use async database writes
+    cache_agent_decisions: bool = True  # Cache recent agent decisions
+    decision_cache_ttl: int = 10  # Steps before cached decisions expire
 
 
 @dataclass
@@ -85,7 +106,8 @@ class Config:
     simulation: SimulationConfig = field(default_factory=SimulationConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
     monitoring: MonitoringConfig = field(default_factory=MonitoringConfig)
-    assets: AssetsConfig = field(default_factory=AssetsConfig)  # Added assets config
+    assets: AssetsConfig = field(default_factory=AssetsConfig)
+    performance: PerformanceConfig = field(default_factory=PerformanceConfig)
 
     def to_dict(self) -> Dict[str, Any]:  # For saving config snapshot
         return asdict(self)
@@ -123,6 +145,7 @@ class Config:
             out_conf = OutputConfig(**config_dict.get("output", {}))
             mon_conf = MonitoringConfig(**config_dict.get("monitoring", {}))
             asset_conf = AssetsConfig(**config_dict.get("assets", {}))
+            perf_conf = PerformanceConfig(**config_dict.get("performance", {}))
 
             return Config(
                 llm=llm_conf,
@@ -131,6 +154,7 @@ class Config:
                 output=out_conf,
                 monitoring=mon_conf,
                 assets=asset_conf,
+                performance=perf_conf,
             )
         except FileNotFoundError:
             print(

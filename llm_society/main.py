@@ -13,12 +13,12 @@ import typer
 from rich.console import Console
 from rich.logging import RichHandler
 
-# Add src to path for imports
+# Add llm_society to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.monitoring.metrics import MetricsCollector
-from src.simulation.society_simulator import SocietySimulator
-from src.utils.config import Config
+from llm_society.monitoring.metrics import MetricsCollector
+from llm_society.simulation.society_simulator import SocietySimulator
+from llm_society.utils.config import Config
 
 app = typer.Typer(name="llm-society", help="2,500-Agent LLM Society Simulation")
 console = Console()
@@ -97,7 +97,7 @@ def demo(
     setup_logging(debug)
     console.print(f"🎭 [bold blue]Running demo scenario: {scenario}[/bold blue]")
 
-    from src.simulation.demo_scenarios import run_demo_scenario
+    from llm_society.simulation.demo_scenarios import run_demo_scenario
 
     asyncio.run(run_demo_scenario(scenario))
 
@@ -116,7 +116,7 @@ def benchmark(
     console.print(f"📊 Agents: {agents}")
     console.print(f"⏱️  Duration: {duration}s")
 
-    from src.monitoring.benchmarks import run_benchmark
+    from llm_society.monitoring.benchmarks import run_benchmark
 
     asyncio.run(run_benchmark(agents, duration))
 

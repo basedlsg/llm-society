@@ -329,75 +329,299 @@ def process_cultural_influence_pyfgpu(
     return pyflamegpu.ALIVE
 
 
-# Empty Python FLAME GPU Agent Function Stubs for Economic Kernels
+# Python FLAME GPU Agent Function for Outputting Trade Offers
 @pyflamegpu.agent_function
 def output_trade_offers_pyfgpu(
     message_in: pyflamegpu.MessageNone, message_out: pyflamegpu.MessageOutput
 ) -> pyflamegpu.FLAMEGPU_AGENT_FUNCTION_RETURN:
-    # Placeholder: Actual logic would involve checking resources, market conditions (from env properties?),
-    # and deciding whether to output a trade_offer message.
-    # Example: if pyflamegpu.getVariableFloat("food_resources") > 20: # Has surplus food
-    #    msg = message_out.newMessage()
-    #    msg.setVariableInt("trader_id", pyflamegpu.getVariableInt("agent_id"))
-    #    # ... set other message variables for a sell offer ...
-    pass
+    """Output trade offers based on agent's surplus resources and needs"""
+    agent_id = pyflamegpu.getVariableInt("agent_id")
+    agent_x = pyflamegpu.getVariableFloat("x")
+    agent_y = pyflamegpu.getVariableFloat("y")
+    agent_type = pyflamegpu.getVariableInt("agent_type")
+    currency = pyflamegpu.getVariableFloat("currency")
+    energy = pyflamegpu.getVariableFloat("energy")
+
+    # Only trade if agent has enough energy
+    if energy < 0.2:
+        return pyflamegpu.ALIVE
+
+    max_trade_offers = pyflamegpu.environment.getPropertyInt("MAX_TRADE_OFFERS_PER_STEP")
+
+    # Resource thresholds for trading
+    SURPLUS_THRESHOLD = 20.0
+    NEED_THRESHOLD = 5.0
+    offers_made = 0
+
+    # Check food resources - sell if surplus
+    food = pyflamegpu.getVariableFloat("food_resources")
+    if food > SURPLUS_THRESHOLD and offers_made < max_trade_offers:
+        sell_quantity = (food - SURPLUS_THRESHOLD) * 0.5
+        price = 2.0 + pyflamegpu.random.uniformFloat(-0.5, 0.5)
+        msg = message_out.newMessage()
+        msg.setVariableInt("trader_id", agent_id)
+        msg.setVariableFloat("trader_x", agent_x)
+        msg.setVariableFloat("trader_y", agent_y)
+        msg.setVariableInt("resource_type", int(ResourceType.FOOD))
+        msg.setVariableFloat("quantity", sell_quantity)
+        msg.setVariableFloat("price", price)
+        msg.setVariableInt("is_buy_order", 0)  # Sell order
+        offers_made += 1
+
+    # Check materials - sell if surplus
+    materials = pyflamegpu.getVariableFloat("material_resources")
+    if materials > SURPLUS_THRESHOLD and offers_made < max_trade_offers:
+        sell_quantity = (materials - SURPLUS_THRESHOLD) * 0.5
+        price = 3.0 + pyflamegpu.random.uniformFloat(-0.5, 0.5)
+        msg = message_out.newMessage()
+        msg.setVariableInt("trader_id", agent_id)
+        msg.setVariableFloat("trader_x", agent_x)
+        msg.setVariableFloat("trader_y", agent_y)
+        msg.setVariableInt("resource_type", int(ResourceType.MATERIALS))
+        msg.setVariableFloat("quantity", sell_quantity)
+        msg.setVariableFloat("price", price)
+        msg.setVariableInt("is_buy_order", 0)
+        offers_made += 1
+
+    # Create buy orders if needed and have currency
+    if food < NEED_THRESHOLD and currency > 10.0 and offers_made < max_trade_offers:
+        buy_quantity = NEED_THRESHOLD - food
+        max_price = 3.0
+        msg = message_out.newMessage()
+        msg.setVariableInt("trader_id", agent_id)
+        msg.setVariableFloat("trader_x", agent_x)
+        msg.setVariableFloat("trader_y", agent_y)
+        msg.setVariableInt("resource_type", int(ResourceType.FOOD))
+        msg.setVariableFloat("quantity", buy_quantity)
+        msg.setVariableFloat("price", max_price)
+        msg.setVariableInt("is_buy_order", 1)  # Buy order
+        offers_made += 1
+
     return pyflamegpu.ALIVE
 
 
+# Python FLAME GPU Agent Function for Processing Trade Offers
 @pyflamegpu.agent_function
 def process_trade_offers_pyfgpu(
     message_in: pyflamegpu.MessageInput, message_out: pyflamegpu.MessageNone
 ) -> pyflamegpu.FLAMEGPU_AGENT_FUNCTION_RETURN:
-    # Placeholder: Actual logic would involve iterating messages, checking if the current agent
-    # wants to accept any offers based on its needs, resources, and the offer's terms.
-    # This is complex because it implies a transaction mechanism or state change upon acceptance.
-    # For now, it does nothing.
-    # Example: for msg in message_in:
-    #    resource = msg.getVariableInt("resource_type")
-    #    price = msg.getVariableFloat("price")
-    #    if pyflamegpu.getVariableFloat("currency") > price: # Can afford and needs resource (simplified)
-    #        # Mark for transaction? How is this resolved?
-    #        pass
-    pass
+    """Process incoming trade offers and execute trades"""
+    agent_id = pyflamegpu.getVariableInt("agent_id")
+    agent_x = pyflamegpu.getVariableFloat("x")
+    agent_y = pyflamegpu.getVariableFloat("y")
+    currency = pyflamegpu.getVariableFloat("currency")
+    food = pyflamegpu.getVariableFloat("food_resources")
+    materials = pyflamegpu.getVariableFloat("material_resources")
+    energy = pyflamegpu.getVariableFloat("energy")
+
+    trade_radius = pyflamegpu.environment.getPropertyFloat("trade_radius")
+    max_trades = pyflamegpu.environment.getPropertyInt("MAX_TRADE_OFFERS_PER_STEP")
+
+    trades_executed = 0
+    new_currency = currency
+    new_food = food
+    new_materials = materials
+
+    NEED_THRESHOLD = 10.0
+
+    for msg in message_in:
+        if trades_executed >= max_trades:
+            break
+
+        trader_id = msg.getVariableInt("trader_id")
+        if trader_id == agent_id:  # Don't trade with self
+            continue
+
+        trader_x = msg.getVariableFloat("trader_x")
+        trader_y = msg.getVariableFloat("trader_y")
+
+        # Check distance
+        dx = trader_x - agent_x
+        dy = trader_y - agent_y
+        distance_sq = dx * dx + dy * dy
+        if distance_sq > trade_radius * trade_radius:
+            continue
+
+        resource_type = msg.getVariableInt("resource_type")
+        quantity = msg.getVariableFloat("quantity")
+        price = msg.getVariableFloat("price")
+        is_buy_order = msg.getVariableInt("is_buy_order")
+        total_cost = price * quantity
+
+        # If they want to sell and we want to buy
+        if is_buy_order == 0:  # Seller
+            if resource_type == int(ResourceType.FOOD) and new_food < NEED_THRESHOLD:
+                if new_currency >= total_cost:
+                    # Execute trade - buy food
+                    buy_amount = min(quantity, NEED_THRESHOLD - new_food)
+                    actual_cost = buy_amount * price
+                    new_currency -= actual_cost
+                    new_food += buy_amount
+                    trades_executed += 1
+            elif resource_type == int(ResourceType.MATERIALS) and new_materials < NEED_THRESHOLD:
+                if new_currency >= total_cost:
+                    buy_amount = min(quantity, NEED_THRESHOLD - new_materials)
+                    actual_cost = buy_amount * price
+                    new_currency -= actual_cost
+                    new_materials += buy_amount
+                    trades_executed += 1
+
+        # If they want to buy and we have surplus to sell
+        elif is_buy_order == 1:  # Buyer
+            if resource_type == int(ResourceType.FOOD) and new_food > 20.0:
+                sell_amount = min(quantity, new_food - 15.0)
+                if sell_amount > 0:
+                    revenue = sell_amount * price
+                    new_currency += revenue
+                    new_food -= sell_amount
+                    trades_executed += 1
+            elif resource_type == int(ResourceType.MATERIALS) and new_materials > 20.0:
+                sell_amount = min(quantity, new_materials - 15.0)
+                if sell_amount > 0:
+                    revenue = sell_amount * price
+                    new_currency += revenue
+                    new_materials -= sell_amount
+                    trades_executed += 1
+
+    # Update agent state
+    pyflamegpu.setVariableFloat("currency", new_currency)
+    pyflamegpu.setVariableFloat("food_resources", new_food)
+    pyflamegpu.setVariableFloat("material_resources", new_materials)
+
     return pyflamegpu.ALIVE
 
 
-# Empty Python FLAME GPU Agent Function Stubs for Family Kernels
+# Python FLAME GPU Agent Function for Outputting Family Signals
 @pyflamegpu.agent_function
 def output_family_signals_pyfgpu(
     message_in: pyflamegpu.MessageNone, message_out: pyflamegpu.MessageOutput
 ) -> pyflamegpu.FLAMEGPU_AGENT_FUNCTION_RETURN:
-    # Placeholder: Could output messages based on family needs or status.
-    pass
+    """Output family interaction signals for agents with families"""
+    agent_id = pyflamegpu.getVariableInt("agent_id")
+    family_id = pyflamegpu.getVariableInt("family_id")
+    energy = pyflamegpu.getVariableFloat("energy")
+    happiness = pyflamegpu.getVariableFloat("happiness")
+    wealth = pyflamegpu.getVariableFloat("wealth")
+
+    # Only output signals if agent belongs to a family
+    if family_id <= 0:
+        return pyflamegpu.ALIVE
+
+    # Only output signals if agent has energy
+    if energy < 0.1:
+        return pyflamegpu.ALIVE
+
+    # Determine interaction type based on state
+    # 0 = support (sharing resources)
+    # 1 = need (requesting help)
+    # 2 = social (bonding)
+    interaction_type = 2  # Default to social bonding
+
+    if energy < 0.3 or happiness < 0.3:
+        interaction_type = 1  # Need help
+    elif wealth > 100.0 and happiness > 0.5:
+        interaction_type = 0  # Can provide support
+
+    # Calculate interaction value based on resources/state
+    value = happiness * energy
+
+    msg = message_out.newMessage()
+    msg.setVariableInt("family_member_id", agent_id)
+    msg.setVariableInt("family_id", family_id)
+    msg.setVariableInt("interaction_type", interaction_type)
+    msg.setVariableFloat("value", value)
+
     return pyflamegpu.ALIVE
 
 
+# Python FLAME GPU Agent Function for Processing Family Interactions
 @pyflamegpu.agent_function
 def process_family_interactions_pyfgpu(
     message_in: pyflamegpu.MessageInput, message_out: pyflamegpu.MessageNone
 ) -> pyflamegpu.FLAMEGPU_AGENT_FUNCTION_RETURN:
-    # Placeholder: Could process family-related messages and update agent state.
-    pass
+    """Process family interaction messages and update agent state"""
+    agent_id = pyflamegpu.getVariableInt("agent_id")
+    my_family_id = pyflamegpu.getVariableInt("family_id")
+    current_happiness = pyflamegpu.getVariableFloat("happiness")
+    current_energy = pyflamegpu.getVariableFloat("energy")
+    current_wealth = pyflamegpu.getVariableFloat("wealth")
+
+    # Only process if agent belongs to a family
+    if my_family_id <= 0:
+        return pyflamegpu.ALIVE
+
+    happiness_change = 0.0
+    energy_change = 0.0
+    wealth_change = 0.0
+    interactions_count = 0
+
+    for msg in message_in:
+        family_member_id = msg.getVariableInt("family_member_id")
+        msg_family_id = msg.getVariableInt("family_id")
+        interaction_type = msg.getVariableInt("interaction_type")
+        value = msg.getVariableFloat("value")
+
+        # Skip if not same family or self
+        if msg_family_id != my_family_id or family_member_id == agent_id:
+            continue
+
+        interactions_count += 1
+
+        if interaction_type == 0:  # Support from family
+            # Receive support - gain happiness and possibly resources
+            happiness_change += 0.05 * value
+            if current_wealth < 50.0 and value > 0.5:
+                wealth_change += 5.0 * value  # Family wealth sharing
+
+        elif interaction_type == 1:  # Family member needs help
+            # Helping costs energy but increases happiness (altruism)
+            if current_wealth > 50.0 and current_energy > 0.3:
+                energy_change -= 0.02
+                happiness_change += 0.03 * value
+                wealth_change -= 2.0  # Contributing to family
+
+        elif interaction_type == 2:  # Social bonding
+            # Simple happiness boost from family interaction
+            happiness_change += 0.02 * value
+
+    # Apply changes with limits
+    new_happiness = max(0.0, min(1.0, current_happiness + happiness_change))
+    new_energy = max(0.0, min(1.0, current_energy + energy_change))
+    new_wealth = max(0.0, current_wealth + wealth_change)
+
+    pyflamegpu.setVariableFloat("happiness", new_happiness)
+    pyflamegpu.setVariableFloat("energy", new_energy)
+    pyflamegpu.setVariableFloat("wealth", new_wealth)
+
     return pyflamegpu.ALIVE
 
 
-# Old Kernel placeholder classes are no longer needed as functions are standalone and Python-based.
-# If any RTC functions were still used, their respective classes and placeholder strings would remain.
-# For now, assuming all are (or will be) Python agent functions or are handled at CPU level.
+# Kernel placeholder classes for organizing code and future RTC support
+class MovementKernel:
+    """Placeholder class for movement kernel code and configuration"""
+    pass
 
-# class SocialInteractionKernel: ... (removed)
-# class EconomicTradeKernel: ... (removed)
-# class CulturalInfluenceKernel: ... (removed)
-# class MovementKernel: ... (removed)
-# class FamilyInteractionKernel: ... (removed)
-# class ResourceManagementKernel: ... (removed)
 
-# Placeholder for AgentType enum if not already defined or imported
-# Should match the one in flame_gpu_simulation.py
-# class AgentType(IntEnum):
-#     FARMER = 0
-#     CRAFTSMAN = 1
-#     TRADER = 2
-#     SCHOLAR = 3
-#     LEADER = 4
-#     UNEMPLOYED = 5
+class SocialInteractionKernel:
+    """Placeholder class for social interaction kernel code and configuration"""
+    pass
+
+
+class EconomicTradeKernel:
+    """Placeholder class for economic trade kernel code and configuration"""
+    pass
+
+
+class CulturalInfluenceKernel:
+    """Placeholder class for cultural influence kernel code and configuration"""
+    pass
+
+
+class FamilyInteractionKernel:
+    """Placeholder class for family interaction kernel code and configuration"""
+    pass
+
+
+class ResourceManagementKernel:
+    """Placeholder class for resource management kernel code and configuration"""
+    pass

@@ -13,9 +13,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from mesa import Agent
 
-from src.economics.banking_system import AccountType, LoanType, TransactionType
-from src.economics.market_system import ResourceType, TradeOrderType
-from src.flame_gpu.flame_gpu_simulation import AgentType, CulturalGroup
+from llm_society.economics.banking_system import AccountType, LoanType, LoanStatus, TransactionType
+from llm_society.economics.market_system import ResourceType, TradeOrderType
+from llm_society.flame_gpu.flame_gpu_simulation import AgentType, CulturalGroup
+from llm_society.social.family_system import Family, FamilyType, RelationshipType
 
 # Attempt to import WorldObject, if it's not directly available,
 # the agent will rely on objects having a .description attribute.
@@ -809,14 +810,14 @@ Respond with just the action and parameters, like "move_to 10 15" or "talk_to ag
             )
             return
 
-            try:
-                # Determine complexity based on description
-                complexity = "simple"
+        try:
+            # Determine complexity based on description
+            complexity = "simple"
             if any(
                 word in description.lower()
                 for word in ["complex", "detailed", "intricate"]
             ):
-                    complexity = "complex"
+                complexity = "complex"
 
             # Call AssetManager to generate the asset
             created_asset = await self.model.asset_manager.create_asset_for_agent(
@@ -845,7 +846,7 @@ Respond with just the action and parameters, like "move_to 10 15" or "talk_to ag
                     logger.info(
                         f"Agent {self.unique_id} placed object {world_object.obj_id} in the world at {(self.position.x, self.position.y, self.position.z)}"
                     )
-        else:
+                else:
                     logger.warning(
                         f"Model does not have add_world_object method. Cannot place {created_asset.description} in world."
                     )
@@ -858,7 +859,7 @@ Respond with just the action and parameters, like "move_to 10 15" or "talk_to ag
                     f"Asset generation failed for {self.unique_id} with description: {description}"
                 )
 
-        except Exception as e:  # This except block corresponds to the try block above
+        except Exception as e:
             await self._add_memory(
                 f"Failed to create: {description} due to error: {str(e)[:100]}",
                 importance=0.4,

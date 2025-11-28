@@ -49,7 +49,9 @@ from .agent_kernels import (
 
 logger = logging.getLogger(__name__)
 
-# Removed MockMessageInstanceWrapper as it was for the mock
+# Constants for GPU simulation limits
+MAX_INTERACTIONS_PER_STEP = 10  # Maximum social interactions per agent per step
+MAX_TRADE_OFFERS_PER_STEP = 5   # Maximum trade offers per agent per step
 
 
 class AgentType(IntEnum):

@@ -8,34 +8,34 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import mesa
 
-from src.agents.llm_agent import (  # Assuming Position is in llm_agent or define it here
+from llm_society.agents.llm_agent import (  # Assuming Position is in llm_agent or define it here
     LLMAgent,
     Position,
 )
-from src.asset_generation.asset_manager import Asset, AssetManager  # Added Asset
-from src.database.database_handler import (  # Added DatabaseHandler import
+from llm_society.asset_generation.asset_manager import Asset, AssetManager  # Added Asset
+from llm_society.database.database_handler import (  # Added DatabaseHandler import
     DatabaseHandler,
 )
-from src.economics.banking_system import (  # Might need AccountType, LoanType etc. for LLMAgent
+from llm_society.economics.banking_system import (  # Might need AccountType, LoanType etc. for LLMAgent
     BankingSystem,
 )
-from src.economics.market_system import (  # Import ResourceType for market processing
+from llm_society.economics.market_system import (  # Import ResourceType for market processing
     MarketSystem,
     ResourceType,
 )
-from src.flame_gpu.flame_gpu_simulation import (
+from llm_society.flame_gpu.flame_gpu_simulation import (
     AgentType,
     CulturalGroup,
     FlameGPUSimulation,
 )
-from src.flame_gpu.flame_gpu_simulation import (
+from llm_society.flame_gpu.flame_gpu_simulation import (
     SimulationConfig as FlameGPUSimConfig,  # Import AgentType and CulturalGroup
 )
 
 # Placeholder for LLMCoordinator if needed by LLMAgent directly
-from src.llm.coordinator import LLMCoordinator  # Added import
-from src.social.family_system import FamilySystem
-from src.utils.config import Config  # Assuming this path is correct
+from llm_society.llm.coordinator import LLMCoordinator  # Added import
+from llm_society.social.family_system import FamilySystem
+from llm_society.utils.config import Config  # Assuming this path is correct
 
 logger = logging.getLogger(__name__)
 

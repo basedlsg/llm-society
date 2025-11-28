@@ -21,14 +21,14 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
-from src.economics.banking_system import AccountType, LoanStatus, LoanType
-from src.economics.banking_system import (
+from llm_society.economics.banking_system import AccountType, LoanStatus, LoanType
+from llm_society.economics.banking_system import (
     TransactionType as BankingTransactionType,  # For BankingTransaction
 )
 
 # Import Enums from other modules to ensure type consistency if storing enum values
-# from src.agents.llm_agent import AgentState # Example, if we store Agent state history
-from src.economics.market_system import (  # For MarketTransaction if we expand
+# from llm_society.agents.llm_agent import AgentState # Example, if we store Agent state history
+from llm_society.economics.market_system import (  # For MarketTransaction if we expand
     OrderStatus,
     ResourceType,
     TradeOrderType,
